@@ -60,7 +60,7 @@ client.on(Events.InteractionCreate, async interaction => {
 	if (!interaction.isChatInputCommand()) return;
 	if (interaction.commandName !== "validate_keycode") return;
 	await interaction.deferReply({
-		ephemeral: interaction.options.getBoolean("ephemeral") ?? true
+		ephemeral: true
 	});
 	const hash = createHash('sha256').update(interaction.options.getString("keycode")!).digest('hex');
 	const userInfo = Object.entries(data.keycodes).find(info => (info[1] as keycode[]).find((keycodeInfo: keycode) => keycodeInfo.hash === hash))
@@ -71,9 +71,31 @@ client.on(Events.InteractionCreate, async interaction => {
 		const keycodeIndex = keycodes.findIndex(code => code.hash === hash)
 		const expiry = Date.parse(keycodes[keycodeIndex - 1].creation) + 1000 * 60 * 60 * 24 * 3
 		if (expiry < Date.now()) return await interaction.followUp(`This keycard owned by <@${userInfo[0]}> expired on <t:${expiry}>.`)
-		return await interaction.followUp(`This keycard belongs to <@${userInfo[0]}> but will expire on <t:${expiry / 1000}>.`)
-	}
+			return await interaction.followUp(`:warning: This keycard belongs to <@${userInfo[0]}> but a new one was recently created and will expire on <t:${expiry / 1000}>. If you believe their keycode got leaked, do not accept it.`)
+		}
 	await interaction.followUp(`This keycode belongs to <@${userInfo[0]}>.`)
+})
+
+client.on(Events.InteractionCreate, async interaction => {
+	if (!interaction.isChatInputCommand()) return;
+	if (interaction.commandName !== "validate_self") return;
+	await interaction.deferReply({
+		ephemeral: true
+	});
+	const hash = createHash('sha256').update(interaction.options.getString("keycode")!).digest('hex');
+	const userInfo = Object.entries(data.keycodes).find(info => (info[1] as keycode[]).find((keycodeInfo: keycode) => keycodeInfo.hash === hash))
+	if (!userInfo) return await interaction.followUp("This keycode doesn't exist.")
+	const keycodes = (userInfo[1] as keycode[]).sort((a, b) => Date.parse(b.creation) - Date.parse(a.creation))
+	const isLatest = keycodes[0].hash === hash
+	if (!isLatest) {
+		const keycodeIndex = keycodes.findIndex(code => code.hash === hash)
+		const expiry = Date.parse(keycodes[keycodeIndex - 1].creation) + 1000 * 60 * 60 * 24 * 3
+		if (expiry < Date.now()) return await interaction.followUp(`This keycard owned by <@${userInfo[0]}> expired on <t:${expiry}>.`)
+		await (interaction.channel as TextChannel).send(`:warning: <@${interaction.user.id}>'s keycard belongs to <@${userInfo[0]}> but a new one was recently created and will expire on <t:${expiry / 1000}>. If you believe their keycode got leaked, do not accept it.`)
+		return await interaction.followUp("Recently expired keycard.")
+	}
+	await (interaction.channel as TextChannel).send(`<@${interaction.user.id}>'s keycode belongs to <@${userInfo[0]}>.`)
+	await interaction.followUp("Keycard validated.")
 })
 
 for (const keycodeList of Object.values(data.keycodes) as keycode[][]) {
@@ -105,11 +127,15 @@ const commands = [
 		.setName("keycode")
 		.setDescription("The keycode to check.")
 		.setRequired(true)
-	)
-	.addBooleanOption(
-		new SlashCommandBooleanOption()
-		.setName("ephemeral")
-		.setDescription("Whether to hide the message as an ephemeral one. Default is true.")
 	),
+	new SlashCommandBuilder()
+	.setName("validate_self")
+	.setDescription("Validate yourself with a keycode.")
+	.addStringOption(
+		new SlashCommandStringOption()
+		.setName("keycode")
+		.setDescription("The keycode to validate yourself with.")
+		.setRequired(true)
+	)
 ]
 await client.rest.put(Routes.applicationCommands(client.application!.id), {"body": commands})
