@@ -1,5 +1,5 @@
 import "./webserver.ts"
-import { Events, Routes, SlashCommandBuilder, SlashCommandStringOption, PermissionsBitField, ComponentType, ButtonStyle } from "discord.js";
+import { Events, Routes, SlashCommandBuilder, SlashCommandStringOption, SlashCommandBooleanOption, PermissionsBitField, ComponentType, ButtonStyle } from "discord.js";
 import type { TextChannel } from "discord.js";
 import { client } from "./client.ts"
 import { data, saveData } from "./dataMsg.ts";
@@ -60,7 +60,7 @@ client.on(Events.InteractionCreate, async interaction => {
 	if (!interaction.isChatInputCommand()) return;
 	if (interaction.commandName !== "validate_keycode") return;
 	await interaction.deferReply({
-		ephemeral: true
+		ephemeral: interaction.options.getBoolean("ephemeral") ?? true
 	});
 	const hash = createHash('sha256').update(interaction.options.getString("keycode")!).digest('hex');
 	const userInfo = Object.entries(data.keycodes).find(info => (info[1] as keycode[]).find((keycodeInfo: keycode) => keycodeInfo.hash === hash))
@@ -105,6 +105,11 @@ const commands = [
 		.setName("keycode")
 		.setDescription("The keycode to check.")
 		.setRequired(true)
+	)
+	.addBooleanOption(
+		new SlashCommandBooleanOption()
+		.setName("ephemeral")
+		.setDescription("Whether to hide the message as an ephemeral one. Default is true.")
 	),
 ]
 await client.rest.put(Routes.applicationCommands(client.application!.id), {"body": commands})
