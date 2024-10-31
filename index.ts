@@ -66,7 +66,7 @@ client.on(Events.InteractionCreate, async interaction => {
 		key: JSON.stringify(publicKey),
 		creation: (new Date()).toUTCString()
 	});
-	//await saveData()
+	await saveData()
 	await interaction.followUp({
 		"content": "Make sure to download keypair.json as you won't be able to see it again!",
 		"files": [
