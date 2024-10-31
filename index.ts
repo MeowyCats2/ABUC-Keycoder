@@ -92,8 +92,8 @@ client.on(Events.InteractionCreate, async interaction => {
 	const jwtToken = JSON.parse(verification.key)
 	const parsed = JSON.parse(verification.data)
 	if (!data.keycodes[parsed.user]?.find?.((currentKeycode: Keycode) => currentKeycode.key === verification.key)) {
-		if (parsed.date < Date.now() - 1000 * 60 * 60 * 24 * 3) {
-			return await interaction.followUp("This verification has expired.")
+		if (parsed.date < Date.now() - 1000 * 60 * 60 * 24 * 31) {
+			return await interaction.followUp("This verification has expired as it is over a month old.")
 		} else {
 			return await interaction.followUp("Verification not found.")
 		}
@@ -129,9 +129,11 @@ client.on(Events.InteractionCreate, async interaction => {
 	const isLatest = keycodes[0].key === publicKey
 	let response = `This keycard belongs to <@${userInfo[0]}>`
 	let status = "safe";
+	let keyExpiry = null;
 	if (!isLatest) {
 		const keycodeIndex = keycodes.findIndex(code => code.key === publicKey)
 		const expiry = Date.parse(keycodes[keycodeIndex - 1].creation) + 1000 * 60 * 60 * 24 * 3
+		keyExpiry = expiry;
 		if (expiry < Date.now()) {
 			response = `This keycard owned by <@${userInfo[0]}> expired on <t:${expiry}>.`
 			status = "expired"
@@ -150,7 +152,9 @@ client.on(Events.InteractionCreate, async interaction => {
 	const verificationData = JSON.stringify({
 		date: Date.now(),
 		user: interaction.user.id,
-		status
+		status,
+		keyCreation: keycodes.find(keycode => keycode.key === publicKey)?.creation,
+		keyExpiry
 	})
 	const signature = arrayBufferToHex(await crypto.subtle.sign(algorithm, privateKey, new TextEncoder().encode(verificationData)))
 	await interaction.followUp("Sent!")
@@ -168,19 +172,19 @@ client.on(Events.InteractionCreate, async interaction => {
 		]
 	})
 })
-/*
-for (const keycodeList of Object.values(data.keycodes) as keycode[][]) {
+
+for (const keycodeList of Object.values(data.keycodes) as Keycode[][]) {
 	if (keycodeList.length < 2) continue;
 	let expiredKeycodes = []
 	for (let keycodeIndex = 1; keycodeIndex < keycodeList.length; keycodeIndex++) {
-		const expiry = Date.parse(keycodeList[keycodeIndex - 1].creation) + 1000 * 60 * 60 * 24 * 3
-		if (expiry < Date.now()) expiredKeycodes.push(keycodeList[keycodeIndex].hash)
+		const expiry = Date.parse(keycodeList[keycodeIndex - 1].creation) + 1000 * 60 * 60 * 24 * 34
+		if (expiry < Date.now()) expiredKeycodes.push(keycodeList[keycodeIndex].key)
 	}
-	for (const expiredHash of expiredKeycodes) {
-		keycodeList.splice(keycodeList.findIndex(currentKeycode => currentKeycode.hash === expiredHash), 1)
+	for (const expiredKey of expiredKeycodes) {
+		keycodeList.splice(keycodeList.findIndex(currentKeycode => currentKeycode.key === expiredKey), 1)
 	}
 }
-await saveData()*/
+await saveData()
 
 const commands = [
 	new SlashCommandBuilder()
